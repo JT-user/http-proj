@@ -25,7 +25,7 @@ typedef struct server_opt {
  * @param request_handler
  * @return
  */
-fd_t server_setup (server_opt_t serv_opts,void (*request_handler)(fd_t));
+fd_t server_setup (server_opt_t serv_opts,int (*request_handler)(fd_t));
 
 /**
  *

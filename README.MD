@@ -1,12 +1,12 @@
 # HTSuSExP
 Hyper Text Server using Simple Executable Pages
-using the epoll linux sys-call,
+
+High performance using the epoll linux sys-call,
 the openssl library
 and OpenMP for MT.
 
 ExP's (Executable Pages) are small shared objects,
-loaded into cache on first request,
-that are defined by exp.h
+defined by exp.h they are loaded into cache on first request.
 
 ## Server
 

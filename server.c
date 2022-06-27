@@ -19,11 +19,11 @@
 bool running;
 
 /** ptr to request handling function */
-static void (*request_handler)(fd_t) = NULL;
+static int (*request_handler)(fd_t) = NULL;
 
 static fd_t epoll_fd = FD_INVAL;
 
-fd_t server_setup (server_opt_t serv_opts,void (*req_handler)(fd_t)) {
+fd_t server_setup (server_opt_t serv_opts,int (*req_handler)(fd_t)) {
     int rv;
     uint16_t port = 31337;
 
@@ -32,7 +32,7 @@ fd_t server_setup (server_opt_t serv_opts,void (*req_handler)(fd_t)) {
     fd_t serv_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if(serv_sock == ERROR)
     {
-        perror("create-socket in server-setup: ");
+        perror("create-socket in server-setup");
         exit(EXIT_FAILURE);
     }
 
@@ -49,7 +49,7 @@ fd_t server_setup (server_opt_t serv_opts,void (*req_handler)(fd_t)) {
     rv = bind(serv_sock, (const struct sockaddr *) &serv_sock_addr, sizeof(serv_sock_addr));
     if(rv == ERROR)
     {
-        perror("bind-socket in server-setup: ");
+        perror("bind-socket in server-setup");
         exit(EXIT_FAILURE);
     }
 
@@ -57,7 +57,7 @@ fd_t server_setup (server_opt_t serv_opts,void (*req_handler)(fd_t)) {
     rv = listen(serv_sock, MAX_QUEUED_REQ);
     if(rv == ERROR)
     {
-        perror("listen-socket in server-setup: ");
+        perror("listen-socket in server-setup");
         exit(EXIT_FAILURE);
     }
 
@@ -87,8 +87,14 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
 
             fd_t epoll_rv = epoll_wait(epoll_fd,&event,1,SERV_TIMEOUT);
             if((epoll_rv == ERROR && (errno == EINTR)) || epoll_rv == 0)
+            {
                 goto test_run_l;
-
+            }
+            else if (epoll_rv == ERROR)
+            {
+                perror("epoll_wait in server-loop");
+                goto test_run_l;
+            }
             if( event.data.fd  == serv_sock)
             {
                 struct sockaddr_in client_sock_addr = {0};
@@ -103,23 +109,33 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
                     if((errno == EAGAIN)||(errno == EWOULDBLOCK))
                         goto test_run_l;
 
-                    perror("accept in server-loop: ");
+                    perror("accept in server-loop");
                     goto test_run_l;
                 }
-                event.events = (EPOLLIN);
+                event.events = (EPOLLIN | EPOLLEXCLUSIVE);
                 event.data.fd = client_sock;
                 epoll_ctl(epoll_fd,EPOLL_CTL_ADD,client_sock,&event);
-
+                printf("accepted fd: %i\n",client_sock);
             }
             else
             {
                 fd_t client_sock = event.data.fd;
                 bool keep_alive = false;
 
-                //handle request
-                request_handler(client_sock);
+                //TODO: check if socket is closed!
 
-                if(!(keep_alive)) // if not keep alive -> close connection to client
+                //handle request
+                int hrv = request_handler(client_sock);
+                if (hrv != EAGAIN && hrv != EWOULDBLOCK && hrv != 0)
+                    keep_alive = false;
+
+                if(keep_alive) // if not keep alive -> close connection to client
+                {
+                    event.events = (EPOLLIN);
+                    event.data.fd = client_sock;
+                    epoll_ctl(epoll_fd,EPOLL_CTL_MOD,client_sock,&event);
+                }
+                else
                 {
                     epoll_ctl(epoll_fd,EPOLL_CTL_DEL,client_sock,NULL);
                     close(client_sock);
