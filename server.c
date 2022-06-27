@@ -14,15 +14,20 @@
 
 #define SERV_TIMEOUT (10) // 10ms time out
 #define POLL_INIT (50) // initial size of epoll
-static bool running;
+
+/** running state */
+bool running;
+
+/** ptr to request handling function */
+static void (*request_handler)(fd_t) = NULL;
 
 static fd_t epoll_fd = FD_INVAL;
 
-fd_t server_setup (server_opt_t serv_opts) {
+fd_t server_setup (server_opt_t serv_opts,void (*req_handler)(fd_t)) {
+    int rv;
     uint16_t port = 31337;
 
-    int rv;
-    //TODO: change test implementation
+    request_handler = req_handler;
 
     fd_t serv_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if(serv_sock == ERROR)
@@ -65,7 +70,7 @@ fd_t server_setup (server_opt_t serv_opts) {
     epoll_ctl(epoll_fd,EPOLL_CTL_ADD,serv_sock,&event);
 
     running = true;
-    printf("server: is running\n");
+    printf("server: started\n");
     return serv_sock;
 }
 
@@ -74,7 +79,7 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
     if(epoll_fd == FD_INVAL)
         exit(EXIT_FAILURE);
 
-    #pragma omp parallel default(none) shared(serv_opts,serv_sock,epoll_fd,request_handler,running)
+    //#pragma omp parallel default(none) shared(serv_opts,serv_sock,epoll_fd,request_handler,running)
     {
         loop_l:
         {
@@ -126,6 +131,13 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
 
         //#pragma omp barrier
     }
+    printf("server: stopped\n");
     close(epoll_fd);
     epoll_fd = FD_INVAL;
+    exit(EXIT_SUCCESS);
+}
+
+void server_stop ()
+{
+    running = false;
 }

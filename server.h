@@ -19,22 +19,18 @@ typedef struct server_opt {
 
 #define MAX_QUEUED_REQ (256)
 
-/** ptr to request handling function */
-void (*request_handler)(fd_t);
-
-/** running state */
-static bool running;
-
 /**
  *
  * @return
  */
-fd_t server_setup (__attribute__((unused)) server_opt_t serv_opts);
+fd_t server_setup (server_opt_t serv_opts,void (*request_handler)(fd_t));
 
 /**
  *
  * @return
  */
 void server_loop (server_opt_t serv_opts, fd_t serv_sock);
+
+void server_stop ();
 
 #endif //HTTP_SERVER_H

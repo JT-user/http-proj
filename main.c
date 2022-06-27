@@ -13,17 +13,18 @@ void http_request_entry(int client_sock_fd);
 static void handle_signal(int signum)
 {
     if (signum == SIGINT) {
-        printf("INT RECV!\n");
-        running = false;
+        printf("signal INT received!\n");
+        server_stop();
         return;
     }
     if (signum == SIGTERM ) {
-        printf("TERM RECV!\n");
-        running = false;
+        printf("signal TERM received!\n");
+        server_stop();
         return;
     }
 
-    printf("WRONG SIGNAL!\n");
+    printf("signal-handler: unknown signal\n");
+    exit(EXIT_FAILURE);
 }
 
 int main()
@@ -36,14 +37,12 @@ int main()
     }
     server_opt_t serv_opts = {.dummy = false};
 
-    request_handler = http_request_entry;
-
-    fd_t serv_sock = server_setup(serv_opts);
+    fd_t serv_sock = server_setup(serv_opts,http_request_entry);
 
     server_loop(serv_opts,serv_sock);
 
-    printf("END OF PROGRAM\n");
-    exit(EXIT_SUCCESS);
+    printf("server-loop: should not return\n");
+    exit(EXIT_FAILURE);
 }
 
 void log_message(char * msg, size_t msg_len)
