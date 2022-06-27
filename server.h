@@ -21,13 +21,16 @@ typedef struct server_opt {
 
 /**
  *
+ * @param serv_opts
+ * @param request_handler
  * @return
  */
 fd_t server_setup (server_opt_t serv_opts,void (*request_handler)(fd_t));
 
 /**
  *
- * @return
+ * @param serv_opts
+ * @param serv_sock
  */
 void server_loop (server_opt_t serv_opts, fd_t serv_sock);
 

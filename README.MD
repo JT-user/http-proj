@@ -1,7 +1,6 @@
-<style>body{background-color:white;color:black;}p{color:black;}</style>
 # HTSuSExP
 Hyper Text Server using Simple Executable Pages
-using the epoll linux systemcall,
+using the epoll linux sys-call,
 the openssl library
 and OpenMP for MT.
 

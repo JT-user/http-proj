@@ -79,7 +79,7 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
     if(epoll_fd == FD_INVAL)
         exit(EXIT_FAILURE);
 
-    //#pragma omp parallel default(none) shared(serv_opts,serv_sock,epoll_fd,request_handler,running)
+    #pragma omp parallel default(none) shared(serv_opts,serv_sock,epoll_fd,request_handler,running)
     {
         loop_l:
         {
