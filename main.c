@@ -67,7 +67,7 @@ int http_request_entry(int client_sock_fd)
     }
 
 
-    ssize_t srv = send(client_sock_fd,response, sizeof(response)-1,0);
+    ssize_t srv = send(client_sock_fd,response, sizeof(response)-1,MSG_NOSIGNAL);
     if(srv == ERROR)
     {
         perror("send");

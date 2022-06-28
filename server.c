@@ -79,21 +79,21 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
     if(epoll_fd == FD_INVAL)
         exit(EXIT_FAILURE);
 
-    #pragma omp parallel default(none) shared(serv_opts,serv_sock,epoll_fd,request_handler,running)
+    //#pragma omp parallel default(none) shared(serv_opts,serv_sock,epoll_fd,request_handler,running)
     {
-        loop_l:
+
+        while(running)
         {
+
             struct epoll_event event = {0};
 
             fd_t epoll_rv = epoll_wait(epoll_fd,&event,1,SERV_TIMEOUT);
             if((epoll_rv == ERROR && (errno == EINTR)) || epoll_rv == 0)
-            {
-                goto test_run_l;
-            }
+                continue;
             else if (epoll_rv == ERROR)
             {
                 perror("epoll_wait in server-loop");
-                goto test_run_l;
+                continue;
             }
             if( event.data.fd  == serv_sock)
             {
@@ -107,12 +107,12 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
                 if(client_sock == ERROR)
                 {
                     if((errno == EAGAIN)||(errno == EWOULDBLOCK))
-                        goto test_run_l;
+                        continue;
 
                     perror("accept in server-loop");
-                    goto test_run_l;
+                    continue;
                 }
-                event.events = (EPOLLIN | EPOLLEXCLUSIVE);
+                event.events = (EPOLLIN | EPOLLEXCLUSIVE | EPOLLET);
                 event.data.fd = client_sock;
                 epoll_ctl(epoll_fd,EPOLL_CTL_ADD,client_sock,&event);
                 printf("accepted fd: %i\n",client_sock);
@@ -120,7 +120,7 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
             else
             {
                 fd_t client_sock = event.data.fd;
-                bool keep_alive = false;
+                bool keep_alive = true;
 
                 //TODO: check if socket is closed!
 
@@ -142,10 +142,6 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
                 }
             }
         }
-        test_run_l: if(running)
-            goto loop_l;
-
-        //#pragma omp barrier
     }
     printf("server: stopped\n");
     close(epoll_fd);
