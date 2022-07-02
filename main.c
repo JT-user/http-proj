@@ -65,6 +65,11 @@ int http_request_entry(int client_sock_fd)
         perror("recv");
         return errno;
     }
+    if(rrv==0)
+    {
+        return -1;
+        printf("client socket %i disconnected\n",client_sock_fd);
+    }
 
 
     ssize_t srv = send(client_sock_fd,response, sizeof(response)-1,MSG_NOSIGNAL);

@@ -21,6 +21,7 @@ bool running;
 /** ptr to request handling function */
 static int (*request_handler)(fd_t) = NULL;
 
+/** epoll handle */
 static fd_t epoll_fd = FD_INVAL;
 
 fd_t server_setup (server_opt_t serv_opts,int (*req_handler)(fd_t)) {
@@ -110,9 +111,10 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
                         continue;
 
                     perror("accept in server-loop");
-                    continue;
+                    break;
                 }
-                event.events = (EPOLLIN | EPOLLEXCLUSIVE | EPOLLET);
+                //enqueue
+                event.events = (EPOLLIN | EPOLLONESHOT | EPOLLHUP);
                 event.data.fd = client_sock;
                 epoll_ctl(epoll_fd,EPOLL_CTL_ADD,client_sock,&event);
                 printf("accepted fd: %i\n",client_sock);
@@ -120,22 +122,33 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
             else
             {
                 fd_t client_sock = event.data.fd;
-                bool keep_alive = true;
+                uint32_t client_event = event.events;
 
-                //TODO: check if socket is closed!
+                // if socket got closed!
+                if(client_event == EPOLLHUP)
+                {
+                    printf("client socket %i disconnected\n",client_sock);
+                    goto remove_client_socket;
+                }
+
+                bool keep_alive = true;
 
                 //handle request
                 int hrv = request_handler(client_sock);
+
                 if (hrv != EAGAIN && hrv != EWOULDBLOCK && hrv != 0)
-                    keep_alive = false;
+                    goto remove_client_socket;
 
                 if(keep_alive) // if not keep alive -> close connection to client
                 {
-                    event.events = (EPOLLIN);
+                    // requeue_client_socket
+                    event.events = (EPOLLIN | EPOLLONESHOT | EPOLLHUP);
                     event.data.fd = client_sock;
                     epoll_ctl(epoll_fd,EPOLL_CTL_MOD,client_sock,&event);
+                    continue;
                 }
-                else
+
+                remove_client_socket:
                 {
                     epoll_ctl(epoll_fd,EPOLL_CTL_DEL,client_sock,NULL);
                     close(client_sock);
