@@ -12,8 +12,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define SERV_TIMEOUT (10) // 10ms time out
-#define POLL_INIT (50) // initial size of epoll
+#define SERV_TIMEOUT (50) // 10ms time out
+#define POLL_INIT (256) // initial size of epoll
 
 /** running state */
 bool running;
@@ -24,10 +24,14 @@ static int (*request_handler)(fd_t) = NULL;
 /** epoll handle */
 static fd_t epoll_fd = FD_INVAL;
 
-fd_t server_setup (server_opt_t serv_opts,int (*req_handler)(fd_t)) {
+/** server options */
+static  server_opt_t server_opts = {0};
+
+fd_t server_setup (server_opt_t serv_opts, int (*req_handler)(fd_t)) {
     int rv;
     uint16_t port = 31337;
 
+    server_opts = serv_opts;
     request_handler = req_handler;
 
     fd_t serv_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -75,7 +79,7 @@ fd_t server_setup (server_opt_t serv_opts,int (*req_handler)(fd_t)) {
     return serv_sock;
 }
 
-void server_loop (server_opt_t serv_opts,fd_t serv_sock)
+void server_loop (fd_t serv_sock)
 {
     if(epoll_fd == FD_INVAL)
         exit(EXIT_FAILURE);
@@ -114,7 +118,7 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
                     break;
                 }
                 //enqueue
-                event.events = (EPOLLIN | EPOLLONESHOT | EPOLLHUP);
+                event.events = (EPOLLIN | EPOLLONESHOT | EPOLLRDHUP);
                 event.data.fd = client_sock;
                 epoll_ctl(epoll_fd,EPOLL_CTL_ADD,client_sock,&event);
                 printf("accepted fd: %i\n",client_sock);
@@ -125,7 +129,7 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
                 uint32_t client_event = event.events;
 
                 // if socket got closed!
-                if(client_event == EPOLLHUP)
+                if(client_event == EPOLLRDHUP)
                 {
                     printf("client socket %i disconnected\n",client_sock);
                     goto remove_client_socket;
@@ -142,7 +146,7 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
                 if(keep_alive) // if not keep alive -> close connection to client
                 {
                     // requeue_client_socket
-                    event.events = (EPOLLIN | EPOLLONESHOT | EPOLLHUP);
+                    event.events = (EPOLLIN | EPOLLONESHOT | EPOLLRDHUP);
                     event.data.fd = client_sock;
                     epoll_ctl(epoll_fd,EPOLL_CTL_MOD,client_sock,&event);
                     continue;
@@ -155,11 +159,11 @@ void server_loop (server_opt_t serv_opts,fd_t serv_sock)
                 }
             }
         }
+        //#pragma omp barrier
     }
     printf("server: stopped\n");
     close(epoll_fd);
     epoll_fd = FD_INVAL;
-    exit(EXIT_SUCCESS);
 }
 
 void server_stop ()

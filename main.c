@@ -15,17 +15,17 @@ int http_request_entry(int client_sock_fd);
 static void handle_signal(int signum)
 {
     if (signum == SIGINT) {
-        printf("signal INT received!\n");
+        printf(" signal 'INT' received\n");
         server_stop();
         return;
     }
     if (signum == SIGTERM ) {
-        printf("signal TERM received!\n");
+        printf(" signal 'TERM' received\n");
         server_stop();
         return;
     }
 
-    printf("signal-handler: unknown signal\n");
+    printf(" signal-handler: unknown signal\n");
     exit(EXIT_FAILURE);
 }
 
@@ -38,26 +38,29 @@ int main()
         perror("register signal handler in main: ");
     }
     server_opt_t serv_opts = {.dummy = false};
+    printf("server: loaded library's\n");
 
     fd_t serv_sock = server_setup(serv_opts,http_request_entry);
 
-    server_loop(serv_opts,serv_sock);
+    server_loop(serv_sock);
 
-    printf("server-loop: should not return\n");
-    exit(EXIT_FAILURE);
+    //http_lib_unload();
+    printf("server: unloaded library's\n");
+
+    exit(EXIT_SUCCESS);
 }
 
 int http_request_entry(int client_sock_fd)
 {
     #include <omp.h>
-    char request[1024];
-    char response[] = "HTTP/1.0 200 OK\r\n"
-                    "Server: HTSuSExP/0.0.1 (Unix)\r\n"
-                    "Connection: keep-alive\r\n"
-                    "Content-Type: text/html\r\n"
-                    "Content-Length: 32\r\n"
-                    "\r\n"
-                    "<html>THIS IS A TEST PAGE</html>";
+    char request[8192];
+    char response[]= "HTTP/1.0 200 OK\r\n"
+                "Server: HTSuSExP\r\n"
+                "Connection: keep-alive\r\n"
+                "Content-Type: text/html\r\n"
+                "Content-Length: 32\r\n"
+                "\r\n"
+                "<html>THIS IS A TEST PAGE</html>\r\n";
 
     ssize_t rrv = recvfrom(client_sock_fd,request,1024,MSG_DONTWAIT,NULL,NULL);
     if(rrv == ERROR)
@@ -67,12 +70,11 @@ int http_request_entry(int client_sock_fd)
     }
     if(rrv==0)
     {
-        return -1;
         printf("client socket %i disconnected\n",client_sock_fd);
+        return -1;
     }
 
-
-    ssize_t srv = send(client_sock_fd,response, sizeof(response)-1,MSG_NOSIGNAL);
+    ssize_t srv = send(client_sock_fd, response, sizeof(response)-1, MSG_NOSIGNAL);
     if(srv == ERROR)
     {
         perror("send");
